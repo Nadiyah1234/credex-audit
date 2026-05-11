@@ -6,6 +6,8 @@ import { runAudit } from '@/lib/auditEngine';
 
 export default function ResultsPage() {
   const [audit, setAudit] = useState<AuditResult | null>(null);
+  const [summary, setSummary] = useState<string>('');
+  const [loadingSummary, setLoadingSummary] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('auditInput');
@@ -13,8 +15,26 @@ export default function ResultsPage() {
       const input: AuditInput = JSON.parse(saved);
       const result = runAudit(input);
       setAudit(result);
+      generateSummary(result);
     }
   }, []);
+
+  const generateSummary = async (auditResult: AuditResult) => {
+    setLoadingSummary(true);
+    try {
+      const response = await fetch('/api/summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auditResult }),
+      });
+      const data = await response.json();
+      setSummary(data.summary);
+    } catch {
+      setSummary('Based on your current AI tool usage, there are opportunities to optimise your spend by reviewing your plan tiers and seat counts.');
+    } finally {
+      setLoadingSummary(false);
+    }
+  };
 
   if (!audit) {
     return (
@@ -37,6 +57,16 @@ export default function ResultsPage() {
           <p className="text-green-400 text-sm font-medium mb-1">Potential Monthly Savings</p>
           <p className="text-5xl font-bold text-white mb-1">${totalMonthlySavings.toFixed(0)}</p>
           <p className="text-gray-400 text-sm">${totalAnnualSavings.toFixed(0)} per year</p>
+        </div>
+
+        {/* AI Summary */}
+        <div className="bg-gray-900 rounded-xl p-6 mb-8">
+          <p className="text-sm text-gray-400 font-medium mb-2">AI Analysis</p>
+          {loadingSummary ? (
+            <p className="text-gray-400 text-sm animate-pulse">Generating your personalised summary...</p>
+          ) : (
+            <p className="text-gray-300 text-sm leading-relaxed">{summary}</p>
+          )}
         </div>
 
         {/* Credex CTA for high savings */}
