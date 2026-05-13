@@ -8,6 +8,12 @@ export default function ResultsPage() {
   const [audit, setAudit] = useState<AuditResult | null>(null);
   const [summary, setSummary] = useState<string>('');
   const [loadingSummary, setLoadingSummary] = useState(false);
+  const [email, setEmail] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [role, setRole] = useState('');
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
 
   useEffect(() => {
     const saved = localStorage.getItem('auditInput');
@@ -33,6 +39,27 @@ export default function ResultsPage() {
       setSummary('Based on your current AI tool usage, there are opportunities to optimise your spend by reviewing your plan tiers and seat counts.');
     } finally {
       setLoadingSummary(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!email || !audit) return;
+    setSaving(true);
+    try {
+      const response = await fetch('/api/save-audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auditResult: audit, email, companyName, role }),
+      });
+      const data = await response.json();
+      if (data.id) {
+        setSaved(true);
+        setShareUrl(`${window.location.origin}/shared/${data.id}`);
+      }
+    } catch {
+      console.error('Failed to save audit');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -98,6 +125,54 @@ export default function ResultsPage() {
             </div>
           ))}
         </div>
+
+        {/* Lead capture */}
+        {!saved ? (
+          <div className="bg-gray-900 rounded-xl p-6 mb-6">
+            <h2 className="font-semibold text-lg mb-1">Save and share your report</h2>
+            <p className="text-gray-400 text-sm mb-4">Get a shareable link and we will notify you when new optimisations apply to your stack.</p>
+            <input
+              type="email"
+              placeholder="Your email (required)"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-gray-800 rounded-lg px-3 py-2 text-white mb-3 text-sm"
+            />
+            <input
+              type="text"
+              placeholder="Company name (optional)"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              className="w-full bg-gray-800 rounded-lg px-3 py-2 text-white mb-3 text-sm"
+            />
+            <input
+              type="text"
+              placeholder="Your role (optional)"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full bg-gray-800 rounded-lg px-3 py-2 text-white mb-4 text-sm"
+            />
+            <button
+              onClick={handleSave}
+              disabled={!email || saving}
+              className="w-full bg-green-500 hover:bg-green-400 disabled:bg-gray-700 disabled:text-gray-500 text-black font-semibold py-3 rounded-lg transition-colors"
+            >
+              {saving ? 'Saving...' : 'Save My Report'}
+            </button>
+          </div>
+        ) : (
+          <div className="bg-gray-900 rounded-xl p-6 mb-6">
+            <p className="text-green-400 font-semibold mb-2">Report saved!</p>
+            <p className="text-gray-400 text-sm mb-3">Share your audit with this link:</p>
+            <div className="bg-gray-800 rounded-lg px-3 py-2 text-sm text-gray-300 break-all mb-3">{shareUrl}</div>
+            <button
+              onClick={() => navigator.clipboard.writeText(shareUrl)}
+              className="w-full border border-gray-700 rounded-lg py-2 text-gray-400 hover:text-white text-sm transition-colors"
+            >
+              Copy Link
+            </button>
+          </div>
+        )}
 
         {/* Optimal spend message */}
         {totalMonthlySavings < 100 && (
